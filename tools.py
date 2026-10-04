@@ -136,6 +136,8 @@ def search_listings(
     Test it from a terminal before you move on:
         python -c "from tools import search_listings; print(search_listings('graphic tee', max_price=30))"
     """
+
+
     query_words = [w for w in _words(description or "") if w not in _STOPWORDS]
     if not query_words:
         return []
@@ -184,6 +186,8 @@ def suggest_outfit(new_item: dict, wardrobe: dict) -> str:
     Test it from a terminal before you move on:
         python -c "from tools import suggest_outfit; from utils.data_loader import get_example_wardrobe, load_listings; print(suggest_outfit(load_listings()[0], get_example_wardrobe()))"
     """
+
+
     item_text = _describe_item(new_item)
     items = (wardrobe or {}).get("items") or []
 
@@ -275,6 +279,8 @@ def create_fit_card(outfit: str, new_item: dict) -> str:
     Test it from a terminal before you move on:
         python -c "from tools import create_fit_card; from utils.data_loader import load_listings; print(create_fit_card('jeans and white sneakers', load_listings()[0]))"
     """
+
+
     title = (new_item or {}).get("title", "this item")
     if not outfit or not outfit.strip():
         return f"No fit card: there was no outfit suggestion to write about for {title}."

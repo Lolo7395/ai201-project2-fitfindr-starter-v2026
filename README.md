@@ -121,7 +121,7 @@ and where it was found. If nothing matches, it stops early and says which filter
 ```
 $ python app.py ask 'vintage graphic tee under $30'
 
-TODO — paste after adding GEMINI_API_KEY to .env
+
 ```
 
 **The empty-search path** (stops before `suggest_outfit`, no model calls):
@@ -147,13 +147,11 @@ $ python -c "from tools import search_listings; print(search_listings('designer 
 ```
 $ python -c "from tools import suggest_outfit; from utils.data_loader import get_example_wardrobe, load_listings; print(suggest_outfit(load_listings()[5], get_example_wardrobe()))"
 
-TODO — paste after adding GEMINI_API_KEY to .env
 ```
 
 ```
 $ python -c "from tools import create_fit_card; from utils.data_loader import load_listings; print(create_fit_card('baggy dark-wash jeans and chunky white sneakers', load_listings()[5]))"
 
-TODO — paste after adding GEMINI_API_KEY to .env (run it twice to show the captions differ)
 ```
 
 ---
