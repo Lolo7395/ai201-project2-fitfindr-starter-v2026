@@ -121,7 +121,17 @@ and where it was found. If nothing matches, it stops early and says which filter
 ```
 $ python app.py ask 'vintage graphic tee under $30'
 
+  Found:    Graphic Tee — 2003 Tour Bootleg Style — $24.0 on depop
 
+  Outfit:   Hey there! That 2003 tour tee is an absolute score for twenty-four bucks. Here are two effortless ways to style it using your current wardrobe.
+
+Outfit 1: Pair the graphic tee with your baggy straight-leg jeans, black combat boots, and the black crossbody bag. This works because it leans fully into a classic, grungy streetwear vibe that feels totally cohesive and effortlessly cool.
+
+Outfit 2: Layer the vintage black denim jacket over the graphic tee, worn with your wide-leg khaki trousers and chunky white sneakers. This works because the tan trousers soften the edgy black pieces, creating a balanced, textured look with a great mix of styles.
+
+  Fit card: Scored this 2003 tour tee on depop for just twenty-four bucks and I'm living for the grungy streetwear energy. Paired it with baggy denim and combat boots for an effortlessly cool look.
+
+2 model calls this session, 687 prompt + 181 output tokens
 ```
 
 **The empty-search path** (stops before `suggest_outfit`, no model calls):
