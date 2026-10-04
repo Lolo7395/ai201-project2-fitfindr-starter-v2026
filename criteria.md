@@ -25,9 +25,10 @@ Given a query that matches at least one listing, the agent completes all three
 tool calls and returns a fit card — in at least 4 of 5 tries.
 
 **Why this target:**
-<!-- Why 4 of 5 and not 5 of 5? Something about your search, probably —
-     "my search is a plain keyword match and some phrasings will miss" is a
-     real answer. -->
+The search itself is deterministic, but two of the three tools call a hosted
+model on the free tier, and one rate-limit timeout or empty response in five
+runs would fail the whole try even though the loop is right. 4 of 5 leaves room
+for one service hiccup without excusing a broken loop.
 
 ---
 
@@ -37,66 +38,56 @@ Given a query that matches no listings, the agent stops before calling
 `suggest_outfit` and returns a message naming what to change — 5 of 5 tries.
 
 **Why this target:**
-<!-- Why is 5 of 5 reasonable here when criterion 1 isn't? What's different
-     about this path? -->
+This path never touches the model: the price filter (`$5`, and the cheapest
+listing is `$12`) empties the results in plain Python, and the branch is a
+single `if not results` check. Nothing in it is random, so anything less than
+5 of 5 means the branch is broken.
 
 ---
 
-## 3. Something about state
+## 3. The item search picked is the item every later tool received
 
-<!-- YOU WRITE THIS ONE.
-
-     How would you know that the item your search found is the same item the
-     next tool received? Name something countable or observable.
-
-     This is the criterion people find hardest, because state failure doesn't
-     look like state failure — it looks like a tool problem. Something that
-     compares session["selected_item"] against what actually reached
-     suggest_outfit is the shape you're after. -->
-
-
+For the query `vintage graphic tee under $30`, `session["selected_item"]["id"]`
+equals `session["search_results"][0]["id"]`, and the selected item's title
+appears in the prompt that `suggest_outfit` sent and in the fit card's input —
+checked by comparing the ids in the session after the run — in 5 of 5 tries.
 
 **Why this target:**
-
-
+State is handed over by plain dictionary assignment in `run_agent`, not by the
+model, so there's no legitimate reason for it to drift; one mismatch in five
+would mean a real bug (like re-running search or picking from a stale list),
+not bad luck.
 
 ---
 
-## 4. Something about the fit card
+## 4. The fit card is a real caption about this item
 
-<!-- YOU WRITE THIS ONE.
-
-     The fit card calls a model, so the same input can produce different words
-     each time. That's not a bug — it's the nature of the tool. So what would
-     make it acceptable?
-
-     Think about what you'd actually be unhappy to see. A caption that never
-     mentions the price? Two different items producing the same opening
-     sentence? A card longer than a caption anyone would post? Any of those can
-     be turned into a number. -->
-
-
+Across 5 runs of `denim jacket under $50` with caching off, every fit card
+(a) mentions the price as `$42`, (b) mentions the platform `depop`, (c) is 4
+sentences or fewer, and (d) no two of the five cards share the same first
+sentence — at least 4 of 5 cards meet (a)–(c), and (d) holds across all 5.
 
 **Why this target:**
-
-
+The prompt asks for the price and platform explicitly, but at temperature 0.9
+the model sometimes rephrases or drops a detail, so I allow one miss on
+(a)–(c). (d) is the variation check: if cache or temperature were wrong, all
+five cards would open identically, and that's an all-or-nothing failure.
 
 ---
 
-## 5. Your choice
+## 5. Price ceiling is never broken, and an empty wardrobe still gets advice
 
-<!-- YOU WRITE THIS ONE TOO.
-
-     Pick something you actually care about getting right. Speed, the empty
-     wardrobe path, what happens when the model can't be reached, whether the
-     search respects a price ceiling — anything, as long as it names a number
-     or an observable outcome. -->
-
-
+For `vintage graphic tee under $30`, every listing in
+`session["search_results"]` has `price <= 30` — 5 of 5 tries. And for
+`denim jacket under $50` run with `--empty-wardrobe`, the run finishes with a
+non-empty `outfit_suggestion` and a fit card instead of an error or crash —
+at least 4 of 5 tries.
 
 **Why this target:**
-
-
+The price filter is a plain numeric comparison, so one item over budget even
+once is a bug; showing a user something they said they can't afford is the
+fastest way to lose their trust. The empty-wardrobe path still depends on the
+model answering, so I allow one service failure there, the same as criterion 1.
 
 ---
 
