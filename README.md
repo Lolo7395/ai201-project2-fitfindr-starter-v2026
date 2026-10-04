@@ -1,6 +1,6 @@
 # FitFindr
 
-> ### 👋 Start here
+<!-- > ### 👋 Start here
 >
 > **New to this repo? Read [RUNNING.md](RUNNING.md) first** — setup, every
 > command, and what to do when something breaks.
@@ -16,7 +16,7 @@
 > All three tools are stubs, so that last command will do nothing useful yet.
 > That's the starting position.
 >
-> **The rest of this file is your submission.** Fill it in as you go.
+> **The rest of this file is your submission.** Fill it in as you go. -->
 
 ---
 
@@ -39,88 +39,54 @@
 
 ## What This Does
 
-<!-- Three or four sentences: what a user asks for, and what they get back. -->
-
-FitFindr takes a plain-language thrift request like `vintage graphic tee under $30, size M`
-and searches 40 secondhand listings from Depop, ThredUp and Poshmark for the best match within
-that size and budget. It then takes the top listing and the user's saved wardrobe and suggests
-one or two outfits using pieces they already own (or general styling ideas if the wardrobe is
-empty). Finally it writes a short, postable "fit card" caption that names the item, its price
-and where it was found. If nothing matches, it stops early and says which filter to loosen.
-
-
----
+FitFindr helps you find secondhand clothes and put together outfits. Enter a request like `vintage graphic tee under $30, size M`, and it searches 40 saved listings from Depop, ThredUp, and Poshmark. It picks the best match, suggests one or two outfits using clothes you already own, and writes a short caption you can post. If your wardrobe is empty, it gives general styling ideas. If nothing matches, it suggests which filters to loosen.
 
 ## Tool Inventory
 
-<!-- Four lines per tool. This is worth 2 points and it's the single most
-     common place students lose them.
-
-     "Returns a list" earns NOTHING. The description has to say what is IN
-     the list.
-
-     The empty case isn't optional either — it's the thing your loop branches
-     on, and if you don't decide it here you'll discover it as a crash in
-     Milestone 5. -->
-
 ### `search_listings`
 
-- **What it does:** Filters the 40 listings in `data/listings.json` by price ceiling and size, then ranks what's left by how many words of the description appear in each listing's title, style tags, category, colors, brand and description.
-- **Inputs:** `description` (str) — keywords like `"vintage graphic tee"`; `size` (str | None) — e.g. `"M"` or `"8"`, `None` skips the size filter; `max_price` (float | None) — inclusive ceiling in dollars, `None` skips the price filter.
-- **Returns:** `list[dict]` — up to `config.SEARCH_RESULT_LIMIT` (10) full listing dicts (`id`, `title`, `description`, `category`, `style_tags`, `size`, `condition`, `price`, `colors`, `brand`, `platform`), highest keyword score first, cheaper first on ties. A size matches when it equals one whole part of the listing's size after splitting on `/`, spaces and brackets and dropping `US`/`SIZE` — so `M` matches `S/M` and `M/L`, `8` matches `US 8` but not `US 8.5`, and `S` does not match `XS` or `US 9`. `One Size` listings match any size.
-- **When it has nothing:** returns `[]` — an empty list, never `None` and never an exception. That empty list is what the loop branches on.
+- **What it does:** Searches `data/listings.json`, filters by size and budget, and ranks listings by words shared with your request. It checks the title, tags, category, colors, brand, and description.
+- **Inputs:** `description` (str), `size` (str | None), and `max_price` (float | None). Using `None` skips that filter. Items priced at the maximum are included.
+- **Returns:** `list[dict]` — up to 10 listing dictionaries, controlled by `config.SEARCH_RESULT_LIMIT`. Each includes `id`, `title`, `description`, `category`, `style_tags`, `size`, `condition`, `price`, `colors`, `brand`, and `platform`. The best keyword matches come first, with cheaper items first when scores tie. Sizes match whole parts: `M` matches `S/M` or `M/L`, and `8` matches `US 8` but not `US 8.5`. `S` does not match `XS` or `US 9`. `One Size` matches any requested size.
+- **If nothing matches:** Returns an empty list (`[]`). The agent uses this to decide when to stop.
 
 ### `suggest_outfit`
 
-- **What it does:** Asks the model for one or two complete outfits built around the thrifted item, naming pieces the user already owns.
-- **Inputs:** `new_item` (dict) — one listing dict from `search_listings`; `wardrobe` (dict) — `{"items": [...]}` where each item has `name`, `category`, `colors`, `style_tags`, `notes`.
-- **Returns:** `str` — a non-empty plain-text suggestion of one or two outfits, each naming the new item plus wardrobe pieces by their `name`.
-- **When it has nothing:** if `wardrobe["items"]` is empty (or missing), it asks the model for general styling advice for the item instead (what kinds of pieces to pair it with), and says it had no wardrobe to work from. If the model returns an empty string, it returns a fixed fallback sentence built from the item's title, category and colors — never `""`.
+- **What it does:** Uses the model to suggest one or two outfits built around the selected item and clothes you already own.
+- **Inputs:** `new_item` (dict — one listing dictionary) and `wardrobe` (dict — with an `items` list). Each wardrobe item contains `name`, `category`, `colors`, `style_tags`, and `notes`.
+- **Returns:** `str` — non-empty text describing one or two outfits, naming the new item and wardrobe pieces.
+- **If the wardrobe is empty:** Gives general styling advice and explains that no wardrobe was available. If the model returns empty text, a fallback sentence uses the item's title, category, and colors.
 
 ### `create_fit_card`
 
-- **What it does:** Asks the model to write a short social-media caption for the find, as if the user were posting the outfit.
-- **Inputs:** `outfit` (str) — the text returned by `suggest_outfit`; `new_item` (dict) — the same listing dict that went into `suggest_outfit`.
-- **Returns:** `str` — a 2–4 sentence caption that mentions the item, its price (`$24`) and its platform once each; mentions the brand only when `brand` is not `None`.
-- **When it has nothing:** if `outfit` is empty or only whitespace, it does not call the model and returns `"No fit card: there was no outfit suggestion to write about for <title>."`
-
----
+- **What it does:** Uses the model to write a short social media caption for the outfit.
+- **Inputs:** `outfit` (str — the text from `suggest_outfit`) and `new_item` (dict — the same listing dictionary).
+- **Returns:** `str` — a 2–4 sentence caption mentioning the item, price, and platform once each. It includes the brand only if `brand` is not `None`.
+- **If the outfit is empty:** Skips the model call and returns `"No fit card: there was no outfit suggestion to write about for <title>."` This also applies to text containing only spaces.
 
 ## Planning Loop
 
-<!-- Your branch rule, stated as a rule — the condition AND both paths — plus
-     the file and function that holds it.
+**Branch rule:** If `search_listings` returns `[]`, the agent saves a message in `session["error"]` explaining the search filters and what to loosen. It then stops without calling the other tools.
 
-     Like this:
-       "If search_listings returns an empty list, put a message in the session
-        and stop. Otherwise take the first result and go to suggest_outfit."
-        — agent.py::run_agent
-
-     The grader checks your code against what you claim here, so the file and
-     function have to be real. -->
-
-**Branch rule:** If `search_listings` returns an empty list, the loop writes a message into `session["error"]` that names the filters it used (description, size, price) and suggests what to loosen, then returns the session without calling `suggest_outfit` or `create_fit_card`. Otherwise it puts the first (best-scoring) result into `session["selected_item"]` and goes on to `suggest_outfit`, then `create_fit_card`.
+If listings are found, it saves the first result in `session["selected_item"]`, calls `suggest_outfit`, and then calls `create_fit_card`.
 
 **Where it lives:** `agent.py::run_agent`
 
-**How the query is parsed:** regex, in `agent.py::parse_query`. A price comes from `under/below/less than/max/up to $N` (or a bare `$N`), a size from `size X`. Both phrases are removed and what's left is the description.
+**How the query is read:** `parse_query` in `agent.py` uses regular expressions to find the price and size. It recognizes price phrases such as `under $30`, `below $30`, `less than $30`, `max $30`, and `up to $30`, or just `$30`. It reads sizes from `size X`. After removing these parts, the remaining text becomes the description.
 
-**What moves through the session:** `query` → `parsed` (`description`, `size`, `max_price`) → `search_results` → `selected_item` → `outfit_suggestion` → `fit_card`. Each tool reads its inputs back out of the session, not from the previous call's return value. `error` is set only on an early stop.
+**Session flow:**
+
+`query` → `parsed` → `search_results` → `selected_item` → `outfit_suggestion` → `fit_card`
+
+`parsed` stores the description, size, and maximum price. Each tool gets its inputs from the session. The `error` field is set only when the agent stops early.
 
 ---
 
 ## Sample Run
 
-<!-- Two things go here.
-
-     1. One FULL query and its output, pasted as text.
-     2. Your three per-tool terminal tests — the command and what it printed. -->
-
 **One full query**
-
 ```
 $ python app.py ask 'vintage graphic tee under $30'
-
   Found:    Graphic Tee — 2003 Tour Bootleg Style — $24.0 on depop
 
   Outfit:   Hey there! That 2003 tour tee is an absolute score for twenty-four bucks. Here are two effortless ways to style it using your current wardrobe.
@@ -135,17 +101,14 @@ Fit card: Scored this 2003 tour tee on depop for just twenty-four bucks and I'm 
 ```
 
 **The empty-search path** (stops before `suggest_outfit`, no model calls):
-
 ```
 $ python app.py ask 'designer ballgown size XXS under $5'
-
   No listings matched "designer ballgown", size XXS, under $5. Try to drop the size, or raise the price ceiling, or use broader words (e.g. 'jacket' instead of a specific style).
 
 0 model calls this session
 ```
 
 **The three tools, tested one at a time**
-
 ```
 $ python -c "from tools import search_listings; print([(r['id'], r['title'], r['price']) for r in search_listings('graphic tee', max_price=30)])"
 [('lst_006', 'Graphic Tee — 2003 Tour Bootleg Style', 24.0), ('lst_002', 'Y2K Baby Tee — Butterfly Print', 18.0), ('lst_033', 'Vintage Band Tee — Faded Grey', 19.0), ('lst_015', 'Vintage Graphic Hoodie — Faded Black', 26.0), ('lst_017', 'Mesh Long-Sleeve Top — Black', 15.0), ('lst_012', 'Oversized Crewneck Sweatshirt — Vintage Navy', 20.0), ('lst_011', 'Low-Rise Cargo Pants — Khaki', 27.0)]
@@ -176,28 +139,24 @@ No fit card: there was no outfit suggestion to write about for Graphic Tee — 2
 
 Same input, cache off, two different captions — so neither the cache nor a 0.0 temperature is flattening the output. The last call is the empty-outfit guard: it returns a message without calling the model.
 
+
 ---
 
 ## How I Used AI
 
-<!-- Two specific moments. What you asked, what came back, what you changed.
+### Moment 1: Filtering listings by size
 
-     "I used Claude to help me code" is not enough.
+- **What I asked:** I asked Claude to help me write the function `search_listings` so sizes matched whole parts of a listing's size, because the original function I wrote wasn't working a few errors.
+- **What it returned:** The filter split sizes using slashes, spaces, and brackets, and removed `US`. I tested it with the data: searching for `platform sneakers` in size `8` returned only `lst_019` (`US 8`), not the `US 8.5` Chelsea boots. Size `S` also did not match `XS` or `US 9`.
+- **What I changed:** I kept the size filter. However, searching for `graphic tee` under $30 included cargo pants in seventh place because of one shared word. I left that result because the agent uses only the top listing, and the first three results were tees. I rated criterion 1 as 4 out of 5 partly because keyword matching could select a weak result for a vague request.
 
-     "I gave Claude my search_listings spec. It returned None on no match
-     instead of an empty list, so I changed it" is the level we want. -->
+### Moment 2: Reading the user's request
 
-**Moment 1**
+- **What I asked:** I asked Claude to help me write the function `parse_query` in `agent.py` to extract the price and size while keeping the item description, because the original function I wrote wasn't working a few errors as well.
+- **What it returned:** It worked for all six example queries, but `looking for a vintage graphic tee under $30` left an extra `a` in the description. An attempted fix using `sed` made no change, and that version was committed.
+- **What I changed:** I tested the function again, found the extra `a`, and updated the regex directly by adding `(?:an?\s+|some\s+)?` after `looking for`. I committed the fix separately. This taught me to check the result after every edit instead of assuming the change worked.
 
-- *What I asked for:* I gave Claude my `search_listings` spec, including the rule that a size has to match a whole part of the listing's size, and asked it to implement the filter.
-- *What came back:* A filter that splits sizes on `/`, spaces and brackets and drops `US`, so `M` matches `S/M` and `8` matches `US 8`. I checked it against the data: `platform sneakers` with size `8` returned only `lst_019` (US 8), not the US 8.5 Chelsea boots, and size `S` didn't match `XS` or `US 9`.
-- *What I changed:* The size logic I kept as-is. But testing `graphic tee` under $30 showed Low-Rise Cargo Pants at rank 7, a weak match on one shared word. I left it in, because the loop only uses the top result and the top three were all real tees, and I wrote criterion 1 at 4 of 5 partly because keyword scoring can pick a weak match first on vaguer queries.
 
-**Moment 2**
-
-- *What I asked for:* A regex `parse_query` in `agent.py` that pulls the price and size out of a query and leaves the rest as the description.
-- *What came back:* It worked on all six example queries, but `looking for a vintage graphic tee under $30` came back with the description `"a vintage graphic tee"`. The first attempt to fix it was a `sed` command that silently matched nothing, and the unfixed version got committed anyway.
-- *What I changed:* I re-ran `parse_query` after the commit, saw the stray `"a"` still there, made the fix directly in the regex (`(?:an?\s+|some\s+)?` after "looking for"), and committed it separately. Lesson: re-run the check after an edit, don't trust that it applied.
 
 <!-- ═══════════════════════ UNIT 4 — THE TEST ═══════════════════════
 

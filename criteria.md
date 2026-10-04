@@ -19,75 +19,72 @@ data earns credit; *"80% seemed reasonable"* does not.
 
 ---
 
-## 1. A matching query completes all three tools
+## 1. A matching query runs all three tools
 
-Given a query that matches at least one listing, the agent completes all three
-tool calls and returns a fit card — in at least 4 of 5 tries.
+When a query matches at least one listing, the agent
+runs all three tools and returns a fit card in at least 4 out of 5 tries.
 
 **Why this target:**
-The search itself is deterministic, but two of the three tools call a hosted
-model on the free tier, and one rate-limit timeout or empty response in five
-runs would fail the whole try even though the loop is right. 4 of 5 leaves room
-for one service hiccup without excusing a broken loop.
+The search gives consistent results, but two tools depend on a hosted model. 
+A timeout, rate limit, or empty response could cause a run to fail. 
+This target allows one service issue while still checking that the agent works.
 
 ---
 
-## 2. An impossible query stops before the second tool
+## 2. A query with no matches stops early
 
-Given a query that matches no listings, the agent stops before calling
-`suggest_outfit` and returns a message naming what to change — 5 of 5 tries.
+When a query matches no listings, the agent stops before calling `suggest_outfit`. 
+It returns a message explaining what the user can change in all 5 tries.
 
 **Why this target:**
-This path never touches the model: the price filter (`$5`, and the cheapest
-listing is `$12`) empties the results in plain Python, and the branch is a
-single `if not results` check. Nothing in it is random, so anything less than
-5 of 5 means the branch is broken.
+This path does not use the model. A $5 budget gives no results because the cheapest
+ listing costs $12. The agent should always recognize the empty results and stop.
 
 ---
 
-## 3. The item search picked is the item every later tool received
+## 3. All tools use the same selected item
 
-For the query `vintage graphic tee under $30`, `session["selected_item"]["id"]`
-equals `session["search_results"][0]["id"]`, and the selected item's title
-appears in the prompt that `suggest_outfit` sent and in the fit card's input —
-checked by comparing the ids in the session after the run — in 5 of 5 tries.
+For `vintage graphic tee under $30`, the selected item's ID must match the first search result's ID:
+
+`session["selected_item"]["id"] == session["search_results"][0]["id"]`
+
+The selected item's title must also appear in the outfit prompt and the fit card's input. 
+These checks must pass in all 5 tries.
 
 **Why this target:**
-State is handed over by plain dictionary assignment in `run_agent`, not by the
-model, so there's no legitimate reason for it to drift; one mismatch in five
-would mean a real bug (like re-running search or picking from a stale list),
-not bad luck.
+The code passes the selected item between tools through the session dictionary. 
+If a later tool receives a different item, there is a bug in how the agent passes the data.
 
 ---
 
-## 4. The fit card is a real caption about this item
+## 4. The fit card describes the item and has variety
 
-Across 5 runs of `denim jacket under $50` with caching off, every fit card
-(a) mentions the price as `$42`, (b) mentions the platform `depop`, (c) is 4
-sentences or fewer, and (d) no two of the five cards share the same first
-sentence — at least 4 of 5 cards meet (a)–(c), and (d) holds across all 5.
+Run `denim jacket under $50` five times with caching off. At least 4 out of 5 fit cards must:
+
+- Include the price as `$42`.
+- Mention `depop`.
+- Have no more than 4 sentences.
+
+All five cards must have different first sentences.
 
 **Why this target:**
-The prompt asks for the price and platform explicitly, but at temperature 0.9
-the model sometimes rephrases or drops a detail, so I allow one miss on
-(a)–(c). (d) is the variation check: if cache or temperature were wrong, all
-five cards would open identically, and that's an all-or-nothing failure.
+The model may occasionally leave out a detail, so one card can miss the content
+requirements. Different opening sentences help check that the captions have variety when caching is off.
 
 ---
 
-## 5. Price ceiling is never broken, and an empty wardrobe still gets advice
+## 5. Results stay within budget, and an empty wardrobe still gets advice
 
-For `vintage graphic tee under $30`, every listing in
-`session["search_results"]` has `price <= 30` — 5 of 5 tries. And for
-`denim jacket under $50` run with `--empty-wardrobe`, the run finishes with a
-non-empty `outfit_suggestion` and a fit card instead of an error or crash —
-at least 4 of 5 tries.
+For `vintage graphic tee under $30`, every search result must cost $30 or less in all 5 tries.
+
+For `denim jacket under $50` with `--empty-wardrobe`,
+the agent must return a non-empty outfit suggestion and
+a fit card in at least 4 out of 5 tries.
 
 **Why this target:**
-The price filter is a plain numeric comparison, so one item over budget even
-once is a bug; showing a user something they said they can't afford is the
-fastest way to lose their trust. The empty-wardrobe path still depends on the
-model answering, so I allow one service failure there, the same as criterion 1.
+
+The price filter runs in Python, so it should always keep results within budget.
+Styling advice for an empty wardrobe still depends on the model, so this target allows one service issue.
 
 ---
 
