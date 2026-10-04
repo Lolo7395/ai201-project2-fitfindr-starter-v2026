@@ -171,7 +171,7 @@ TODO — paste after adding GEMINI_API_KEY to .env (run it twice to show the cap
 
 - *What I asked for:* I gave Claude my `search_listings` spec, including the rule that a size has to match a whole part of the listing's size, and asked it to implement the filter.
 - *What came back:* A filter that splits sizes on `/`, spaces and brackets and drops `US`, so `M` matches `S/M` and `8` matches `US 8`. I checked it against the data: `platform sneakers` with size `8` returned only `lst_019` (US 8), not the US 8.5 Chelsea boots, and size `S` didn't match `XS` or `US 9`.
-- *What I changed:* I kept it and added one rule it didn't have: `One Size` listings (hats, bags, belts) match any size, because someone asking for size M would still want a one-size bag.
+- *What I changed:* The size logic I kept as-is. But testing `graphic tee` under $30 showed Low-Rise Cargo Pants at rank 7, a weak match on one shared word. I left it in, because the loop only uses the top result and the top three were all real tees, and I wrote criterion 1 at 4 of 5 partly because keyword scoring can pick a weak match first on vaguer queries.
 
 **Moment 2**
 
