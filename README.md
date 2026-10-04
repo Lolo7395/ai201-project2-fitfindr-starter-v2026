@@ -41,6 +41,12 @@
 
 <!-- Three or four sentences: what a user asks for, and what they get back. -->
 
+FitFindr takes a plain-language thrift request like `vintage graphic tee under $30, size M`
+and searches 40 secondhand listings from Depop, ThredUp and Poshmark for the best match within
+that size and budget. It then takes the top listing and the user's saved wardrobe and suggests
+one or two outfits using pieces they already own (or general styling ideas if the wardrobe is
+empty). Finally it writes a short, postable "fit card" caption that names the item, its price
+and where it was found. If nothing matches, it stops early and says which filter to loosen.
 
 
 ---
@@ -113,25 +119,41 @@
 **One full query**
 
 ```
-$ python app.py ask '...'
+$ python app.py ask 'vintage graphic tee under $30'
 
+TODO — paste after adding GEMINI_API_KEY to .env
+```
+
+**The empty-search path** (stops before `suggest_outfit`, no model calls):
+
+```
+$ python app.py ask 'designer ballgown size XXS under $5'
+
+  No listings matched "designer ballgown", size XXS, under $5. Try to drop the size, or raise the price ceiling, or use broader words (e.g. 'jacket' instead of a specific style).
+
+0 model calls this session
 ```
 
 **The three tools, tested one at a time**
 
 ```
-$ python -c "from tools import search_listings; print(search_listings('graphic tee', max_price=30))"
+$ python -c "from tools import search_listings; print([(r['id'], r['title'], r['price']) for r in search_listings('graphic tee', max_price=30)])"
+[('lst_006', 'Graphic Tee — 2003 Tour Bootleg Style', 24.0), ('lst_002', 'Y2K Baby Tee — Butterfly Print', 18.0), ('lst_033', 'Vintage Band Tee — Faded Grey', 19.0), ('lst_015', 'Vintage Graphic Hoodie — Faded Black', 26.0), ('lst_017', 'Mesh Long-Sleeve Top — Black', 15.0), ('lst_012', 'Oversized Crewneck Sweatshirt — Vintage Navy', 20.0), ('lst_011', 'Low-Rise Cargo Pants — Khaki', 27.0)]
 
+$ python -c "from tools import search_listings; print(search_listings('designer ballgown', size='XXS', max_price=5))"
+[]
 ```
 
 ```
-$ python -c "from tools import suggest_outfit; ..."
+$ python -c "from tools import suggest_outfit; from utils.data_loader import get_example_wardrobe, load_listings; print(suggest_outfit(load_listings()[5], get_example_wardrobe()))"
 
+TODO — paste after adding GEMINI_API_KEY to .env
 ```
 
 ```
-$ python -c "from tools import create_fit_card; ..."
+$ python -c "from tools import create_fit_card; from utils.data_loader import load_listings; print(create_fit_card('baggy dark-wash jeans and chunky white sneakers', load_listings()[5]))"
 
+TODO — paste after adding GEMINI_API_KEY to .env (run it twice to show the captions differ)
 ```
 
 ---
@@ -147,15 +169,15 @@ $ python -c "from tools import create_fit_card; ..."
 
 **Moment 1**
 
-- *What I asked for:*
-- *What came back:*
-- *What I changed:*
+- *What I asked for:* I gave Claude my `search_listings` spec, including the rule that a size has to match a whole part of the listing's size, and asked it to implement the filter.
+- *What came back:* A filter that splits sizes on `/`, spaces and brackets and drops `US`, so `M` matches `S/M` and `8` matches `US 8`. I checked it against the data: `platform sneakers` with size `8` returned only `lst_019` (US 8), not the US 8.5 Chelsea boots, and size `S` didn't match `XS` or `US 9`.
+- *What I changed:* I kept it and added one rule it didn't have: `One Size` listings (hats, bags, belts) match any size, because someone asking for size M would still want a one-size bag.
 
 **Moment 2**
 
-- *What I asked for:*
-- *What came back:*
-- *What I changed:*
+- *What I asked for:* A regex `parse_query` in `agent.py` that pulls the price and size out of a query and leaves the rest as the description.
+- *What came back:* It worked on all six example queries, but `looking for a vintage graphic tee under $30` came back with the description `"a vintage graphic tee"`. The first attempt to fix it was a `sed` command that silently matched nothing, and the unfixed version got committed anyway.
+- *What I changed:* I re-ran `parse_query` after the commit, saw the stray `"a"` still there, made the fix directly in the regex (`(?:an?\s+|some\s+)?` after "looking for"), and committed it separately. Lesson: re-run the check after an edit, don't trust that it applied.
 
 <!-- ═══════════════════════ UNIT 4 — THE TEST ═══════════════════════
 
