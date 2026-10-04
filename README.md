@@ -59,24 +59,24 @@
 
 ### `search_listings`
 
-- **What it does:**
-- **Inputs:** <!-- name and type each: `max_price` (float), not "a price" -->
-- **Returns:**
-- **When it has nothing:**
+- **What it does:** Filters the 40 listings in `data/listings.json` by price ceiling and size, then ranks what's left by how many words of the description appear in each listing's title, style tags, category, colors, brand and description.
+- **Inputs:** `description` (str) — keywords like `"vintage graphic tee"`; `size` (str | None) — e.g. `"M"` or `"8"`, `None` skips the size filter; `max_price` (float | None) — inclusive ceiling in dollars, `None` skips the price filter.
+- **Returns:** `list[dict]` — up to `config.SEARCH_RESULT_LIMIT` (10) full listing dicts (`id`, `title`, `description`, `category`, `style_tags`, `size`, `condition`, `price`, `colors`, `brand`, `platform`), highest keyword score first, cheaper first on ties. A size matches when it equals one whole part of the listing's size after splitting on `/`, spaces and brackets and dropping `US`/`SIZE` — so `M` matches `S/M` and `M/L`, `8` matches `US 8` but not `US 8.5`, and `S` does not match `XS` or `US 9`. `One Size` listings match any size.
+- **When it has nothing:** returns `[]` — an empty list, never `None` and never an exception. That empty list is what the loop branches on.
 
 ### `suggest_outfit`
 
-- **What it does:**
-- **Inputs:**
-- **Returns:**
-- **When it has nothing:**
+- **What it does:** Asks the model for one or two complete outfits built around the thrifted item, naming pieces the user already owns.
+- **Inputs:** `new_item` (dict) — one listing dict from `search_listings`; `wardrobe` (dict) — `{"items": [...]}` where each item has `name`, `category`, `colors`, `style_tags`, `notes`.
+- **Returns:** `str` — a non-empty plain-text suggestion of one or two outfits, each naming the new item plus wardrobe pieces by their `name`.
+- **When it has nothing:** if `wardrobe["items"]` is empty (or missing), it asks the model for general styling advice for the item instead (what kinds of pieces to pair it with), and says it had no wardrobe to work from. If the model returns an empty string, it returns a fixed fallback sentence built from the item's title, category and colors — never `""`.
 
 ### `create_fit_card`
 
-- **What it does:**
-- **Inputs:**
-- **Returns:**
-- **When it has nothing:**
+- **What it does:** Asks the model to write a short social-media caption for the find, as if the user were posting the outfit.
+- **Inputs:** `outfit` (str) — the text returned by `suggest_outfit`; `new_item` (dict) — the same listing dict that went into `suggest_outfit`.
+- **Returns:** `str` — a 2–4 sentence caption that mentions the item, its price (`$24`) and its platform once each; mentions the brand only when `brand` is not `None`.
+- **When it has nothing:** if `outfit` is empty or only whitespace, it does not call the model and returns `"No fit card: there was no outfit suggestion to write about for <title>."`
 
 ---
 
@@ -93,13 +93,13 @@
      The grader checks your code against what you claim here, so the file and
      function have to be real. -->
 
-**Branch rule:**
+**Branch rule:** If `search_listings` returns an empty list, the loop writes a message into `session["error"]` that names the filters it used (description, size, price) and suggests what to loosen, then returns the session without calling `suggest_outfit` or `create_fit_card`. Otherwise it puts the first (best-scoring) result into `session["selected_item"]` and goes on to `suggest_outfit`, then `create_fit_card`.
 
 **Where it lives:** `agent.py::run_agent`
 
-**How the query is parsed:** <!-- regex, string splitting, or asking the model — say which -->
+**How the query is parsed:** regex, in `agent.py::parse_query`. A price comes from `under/below/less than/max/up to $N` (or a bare `$N`), a size from `size X`. Both phrases are removed and what's left is the description.
 
-**What moves through the session:** <!-- which fields, in what order -->
+**What moves through the session:** `query` → `parsed` (`description`, `size`, `max_price`) → `search_results` → `selected_item` → `outfit_suggestion` → `fit_card`. Each tool reads its inputs back out of the session, not from the previous call's return value. `error` is set only on an early stop.
 
 ---
 
