@@ -78,7 +78,7 @@ def parse_query(query: str) -> dict:
         size = size_match.group(1).upper()
         text = text[: size_match.start()] + " " + text[size_match.end():]
 
-    description = re.sub(r"^\s*(?:i'?m\s+)?(?:looking for|i want|find me|show me)\s+", "", text, flags=re.IGNORECASE)
+    description = re.sub(r"^\s*(?:i'?m\s+)?(?:looking for|i want|find me|show me)\s+(?:an?\s+|some\s+)?", "", text, flags=re.IGNORECASE)
     description = re.sub(r"[,;]+", " ", description)
     description = re.sub(r"\s+", " ", description).strip()
     return {"description": description, "size": size, "max_price": max_price}
