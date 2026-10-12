@@ -182,11 +182,7 @@ Same input, cache off, two different captions — so neither the cache nor a 0.0
 ## Run Log — Before
 
 `python run_eval.py --label before`, then `python scorer.py before`. Six scenarios
-× five tries, caching off, 2 model calls per completed run. Logs:
-[results/run_2026-10-11_2123_before.md](results/run_2026-10-11_2123_before.md)
-(raw answers and traces), [results/run_2026-10-11_2123_before.json](results/run_2026-10-11_2123_before.json)
-(sessions and the prompts each tool was sent) and
-[results/scored_before.md](results/scored_before.md) (the table below, per-try detail).
+× five tries, caching off, 2 model calls per completed run. 
 
 `run_eval.py` leaves PASS/FAIL blank, so I wrote `scorer.py`: each check is the
 sentence from `criteria.md` it is named after, applied the same way to every
@@ -251,7 +247,8 @@ Criterion 5, empty wardrobe, `tools.py::suggest_outfit` (first 280 characters, t
 ```
 Since I don't know the rest of your closet yet, here are two versatile ways to style your cool new Wrangler jacket! 
 
-First, try a casual streetwear look by layering it over a simple white baby tee and pairing it with high-waisted black wide-leg trousers and chunky sneakers. Fini…
+First, try a casual streetwear look by layering it over a simple white baby tee and pairing it with high-waisted black 
+wide-leg trousers and chunky sneakers. Fini…
 ```
 
 ---
@@ -268,40 +265,33 @@ First, try a casual streetwear look by layering it over a simple white baby tee 
 
 **Diagnoses**
 
-**Criterion 4, as written (0 of 5) — the miss is in the criterion, not the system.**
-This is not one of the four places a run can go wrong (a tool, the loop's
-branch, the session, the model's output). The only denim jacket under $50 in
-`data/listings.json` is `lst_007`, $42 on poshmark. I wrote `depop` in last
-unit's criterion. Every card correctly said poshmark and every one failed my
-check. I'm not calling this a pass: against what I wrote, it is MISSED. But no
-fix to the agent could make it pass, so I revised the criterion rather than
-the code, and said so under the original in `criteria.md`.
+**Criterion 4, as written (0 out of 5): The mistake was in the criterion.**
 
-**Criterion 4, as revised (openers not distinct) — the model's output, caused by the `create_fit_card` prompt.**
-23 of the 25 fit cards across the whole run open with "Scored this" (one
-"Found this", one "Score this"). In the denim-jacket scenario, three of the
-five cards open with the same first four words, "Scored this vintage Wrangler".
-The tool works: price, platform and length were all right in 5 of 5. The
-mechanism I believe is this: `create_fit_card`'s prompt has exactly one
-instruction about openings, `Don't open with 'Just' or 'Obsessed'`, which bans
-two words and names no alternative, so the model takes the next most likely
-opener. Temperature is 0.9, so this isn't the 0.0 case from `config.py`; the
-prompt itself leaves the opening to a single high-probability choice. The
-"after" run below tests that explanation.
+The only denim jacket under $50 in `data/listings.json` is `lst_007`, priced at $42 on `poshmark`.
+ I accidentally wrote `depop` in last unit’s criterion. Every caption correctly said `poshmark`, 
+ but failed my check because I had the wrong expected platform.
 
-**Not misses, but worth saying plainly.**
-- Criterion 4's "different first sentences" passed 5 of 5 while the cards were
-  near-duplicates. That is the criterion's measurement problem (revised), not a
-  success of the system.
-- Criteria 1 and 5 allow one service failure in five, and none happened. The
-  free-tier rate limit paused the run (`[rate limit] 15 requests used this
-  minute`) but never failed a call, so I have no evidence about how criterion
-  1 behaves when the model does fail. Both are bounded by one run of five.
-- My first scorer marked criterion 2 as 0 of 5. That was my bug (it matched the
-  word `suggest_outfit` inside the trace *note* "…NOT called"), not the agent;
-  the log was always showing the branch working. Fixed to match step names and
-  re-scored the same log. Noted here because a criterion that "fails" for the
-  wrong reason is exactly what happened with criterion 4's `depop`.
+I am still reporting this as MISSED based on the original wording. The agent did not need a fix, 
+so I corrected the criterion and explained the change below the original in `criteria.md`.
+
+**Criterion 4, as revised: The captions had repeated openings.**
+
+Across the 25 fit cards, 23 started with “Scored this,” one with “Found this,” and one with “Score this.”
+ In the denim-jacket test, three of the five captions began with the same four words: “Scored this vintage Wrangler.”
+  All five had the correct price, platform, and length, but the openings lacked variety.
+
+I believe the prompt caused this repetition. Its only instruction about openings was `Don't open with 'Just' or 'Obsessed'`.
+ It banned two words without suggesting other ways to begin, so the model kept choosing a familiar opening.
+  The temperature was already 0.9, rather than the 0.0 setting in `config.py`. The next test checks whether changing the prompt improves the variety.
+
+**Other testing limits and mistakes:**
+
+- The original “different first sentences” check passed all five captions, even though they sounded almost identical.
+ The check was too broad to catch the repetition, so I revised it.
+
+- Criteria 1 and 5 allowed one service failure in five tries, but none occurred. The free-tier rate limit paused the run with `[rate limit] 15 requests used this minute`, but no call failed. These results show what worked in one batch of five; they do not show how the agent handles a model failure during a run.
+
+- My first scoring script incorrectly marked Criterion 2 as 0 out of 5. It found `suggest_outfit` in a trace note saying the tool was “NOT called” and counted it as a call. The log showed that the agent stopped correctly. I fixed the scorer to check step names and scored the same log again. Like the wrong platform in Criterion 4, this was a testing mistake rather than an agent failure.
 
 ---
 
@@ -350,11 +340,6 @@ and neither model tool is called (0 model calls):
 | 2 | Empty wardrobe | `ask 'denim jacket under $50' --empty-wardrobe` | No crash, but silent: nothing told the user the outfit was generic (only the model's own wording) | A `Note:` line saying the wardrobe is empty and the outfit is general advice; trace says `wardrobe empty: general advice` |
 | 3 | Model unavailable | `GEMINI_API_KEY=<broken> ask 'corduroy blazer under $60'` (new query, so not cached) | `ModelUnavailable` raised out of `run_agent`, loop crashed, listing lost; `run_eval.py` would log a crash | The found listing, plus "The model isn't available… Check GEMINI_API_KEY…" and the trace stops at `suggest_outfit — ModelUnavailable` |
 
-I overrode `GEMINI_API_KEY` in the environment for failure 3 instead of editing
-`.env`: `config.py` loads `.env` without overriding an existing variable, so it
-is the same broken key reaching the same call, and my real key was never
-touched. The empty-wardrobe and broken-key runs, as printed (the empty search is the trace above):
-
 ```
 $ python app.py ask 'denim jacket under $50' --empty-wardrobe --trace
 (running with an empty wardrobe)
@@ -402,53 +387,34 @@ Second, go for a retro vibe by wearing it with a floral midi dress and canvas sn
 
   The model isn't available, so the outfit and fit card could not be written. Your search worked: the listing above is the best match it found. The model rejected your API key. Check GEMINI_API_KEY in your .env file, or create a fresh key at aistudio.google.com. Fix that and run the query again.
 ```
+`generate.py` raises a `RuntimeError` if the model keeps hitting the rate limit after several retries. `run_agent` now catches this error during both model steps and tells the user, “The model is busy, wait about a minute.” I did not deliberately trigger this because it requires the free tier to reject five retries in a row. The error handling is in place, but it is still untested.
 
-`generate.py` also raises a plain `RuntimeError` after repeated rate-limit
-retries; `run_agent` now catches that around the two model steps too and says
-"the model is busy, wait about a minute". I did not trigger that path on
-purpose (it needs the free tier to refuse five retries in a row), so it is
-handled but untested.
+**Moving the search tool to MCP:** I registered `search_listings` in `mcp_server.py` with its input types: `description: str`, `size: str | None`, and `max_price: float | None`. Its description explains what the tool does, how sizes match, and what it returns when nothing is found, so someone can understand it without reading the code.
 
-**On the MCP move:** `search_listings` is registered in `mcp_server.py` with its
-typed inputs (`description: str`, `size: str | None`, `max_price: float | None`)
-and a description written for a reader who cannot see the code, including the
-size-matching rule and the empty case. `run_agent()` calls
-`mcp_client.call_tool("search_listings", {...})` instead of the function.
-Nothing behaved differently: the MCP result equals the direct call
-(`call_tool(...) == search_listings(...)` was `True` for `graphic tee` under
-$30, and an empty search came back as `[]`, not `None`, so the branch still
-fires). The one thing I did notice is cost: each call starts and stops the
-server process, which is visible as a short pause in `run_eval.py`.
-`python mcp_client.py` lists the tool with its schema.
+`run_agent()` now uses `mcp_client.call_tool("search_listings", {...})` instead of calling the function directly. In my checks, both methods returned the same results for `graphic tee` under $30. A search with no matches still returned `[]`, so the agent’s early-stop rule continued to work.
 
+The main difference I noticed was a short delay in `run_eval.py`, because each call starts and stops the server process. Running `python mcp_client.py` also lists the tool and its input schema.
 ---
 
 ## The Improvement
 
-**What I changed:** One change to one prompt, in `tools.py::create_fit_card`.
-Each call now picks one of six opening angles at random (`_OPENING_ANGLES`: how
-it feels to wear, where you'd wear it, the price as a pleasant surprise, a
-question to the reader, the colour or texture, the piece it pairs with) and
-puts it in the prompt, and the old ban on `'Just'`/`'Obsessed'` became a ban on
-`'Scored'`, `'Found'`, `'Just'`, `'Obsessed'` and `'Thrifted'`. The tool's
-signature, return shape and empty-outfit guard are unchanged. Commit
-`create_fit_card: ask for a different opening angle per call, ban 'Scored'`.
+**What I changed:** I updated the prompt in `tools.py::create_fit_card` to encourage more variety in the captions. 
+Each call randomly chooses one of six opening ideas: how the item feels to wear, where you would wear it, 
+its surprisingly good price, a question for the reader, its color or texture, or what you would pair it with.
+I also expanded the banned opening words from “Just” and “Obsessed” to include “Scored,” “Found,” and “Thrifted.” 
+ The tool’s inputs, output format, and handling of empty outfits stayed the same.
 
-**Which failure it was meant to fix:** Criterion 4 as revised, the
-distinct-openers half: 23 of 25 cards opened "Scored this", and three of the
-five denim-jacket cards shared their first four words. My diagnosis was that
-the prompt's only instruction about openings banned two words and named no
-alternative, so the model took the next most likely opener. Asking for a
-specific, varying angle, and banning the actual common opener, tests that
-explanation directly.
+**Commit:** `create_fit_card: ask for a different opening angle per call, ban 'Scored'`
+
+**Which failure it was meant to fix:** This change focused on the different-opening requirement in Criterion 4. 
+During testing, 23 of 25 captions started with “Scored this,” and three of the five denim-jacket captions had the same first four words.
+I thought this happened because the prompt banned two opening words without suggesting other ways to begin.
+Giving the model a different opening idea each time and banning the repeated words lets me test whether that was the cause.
 
 ### Run Log — After
 
 `python run_eval.py --label after`, then `python scorer.py after`. Same six
-scenarios, same five tries, caching off. Logs:
-[results/run_2026-10-11_2129_after.md](results/run_2026-10-11_2129_after.md),
-[results/run_2026-10-11_2129_after.json](results/run_2026-10-11_2129_after.json),
-[results/scored_after.md](results/scored_after.md).
+scenarios, same five tries, caching off.
 
 | Criterion | Target | Try 1 | Try 2 | Try 3 | Try 4 | Try 5 | Verdict |
 |---|---|---|---|---|---|---|---|
@@ -490,73 +456,43 @@ try 4: Are we feeling the double denim today? Snagged this vintage Wrangler jack
 try 5: Light-wash denim makes this cropped Wrangler jacket the ultimate streetwear piece for throwing over a simple tank and baggy jeans. Snagged this vintage gem on poshmark for only $42.
 ```
 
-**Did it help, and how do I know:** Yes, on the thing it was aimed at, and it
-did not break anything I could measure. The revised criterion 4 went from
-MISSED to MET because the openers are now distinct; across all 25 cards the
-"Scored this" opener went from 23 to 0 and the distinct two-word openers from 3
-to 18, while `$42` stayed written as `$42` in 25 of 25 cards and no card passed
-four sentences. Criteria 1, 2, 3 and 5 did not move, which is what a change
-confined to one prompt should do.
+**Did it help, and how do I know:** Yes, the change improved the caption openings without affecting the other results I checked.
+ The revised Criterion 4 went from MISSED to MET because the openings were different. 
+ Across all 25 captions, “Scored this” went from appearing 23 times to zero, and the number of different two-word openings increased from 3 to 18. All 25 captions still used `$42`, and none had more than four sentences. Criteria 1, 2, 3, and 5 stayed the same, which makes sense because I only changed one prompt.
 
-What it did **not** do, and could not: criterion 4 *as written* is still
-MISSED at 0 of 5, because a correct card says poshmark and the criterion says
-depop. No prompt change fixes a typo in a criterion. That verdict is the one I
-am reporting against last unit's wording.
+**What it did not fix:** Criterion 4, as originally written, still scored 0 out of 5 and remains MISSED.
+The correct platform is `poshmark`, but the criterion requires `depop`. Changing the prompt would not fix that mistake in the criterion. I am reporting the original result based on last unit’s wording.
 
-Caveats on the measurement, so it isn't oversold:
-- It is one run of five. The angle is random, so a different run could still
-  put two cards in the same opener by chance. The 23-to-0 change is strong
-  evidence the template opener is gone; "distinct 4-word openers in 5 of 5" is
-  one sample of a random process, not a guarantee.
-- The angle chosen is not written to the log, so I can't say which angles did
-  the work. I only checked that the output varies, not that one angle is better.
-- Before the full run I looked at three throwaway cards on the same item and
-  one wrote the price out as "Forty-two dollars". I did not tune for it before
-  measuring. It did not recur in 25 cards, but "the price as a pleasant
-  surprise" is the angle most likely to cause it again.
-- Two graphic-tee cards (criterion 1, tries 1 and 2) still start "Putting on
-  this". They differ by the fourth word, so the revised check would pass them,
-  but a reader would call that a repeat. The variety check only scores the
-  denim-jacket scenario.
+**Limits of the results:**
+
+- This was one batch of five runs. Since the opening idea is chosen randomly, another batch could still have repeated openings. The drop from 23 “Scored this” openings to zero shows a clear improvement, but five different four-word openings in one batch does not guarantee the same result every time.
+- The chosen opening idea is not saved in the log, so I cannot tell which ideas helped most. I checked whether the captions varied, not whether one idea worked better than another.
+- Before the full test, I checked three trial captions for the same item. One wrote the price as “Forty-two dollars.” I did not adjust the prompt before testing, and this did not happen in the 25 measured captions. Still, the idea about a surprisingly good price could lead to that wording again.
+- Two graphic-tee captions in Criterion 1, tries 1 and 2, still began with “Putting on this.” They differed by the fourth word, so they would pass the revised check, but they still sound repetitive to a reader. The variety check only covers the denim-jacket captions.
 
 ---
 
 ## What's Still Broken
 
-- **Criterion 4 as written is MISSED and stays MISSED.** It is a wrong value in
-  my criterion, not a defect in FitFindr. I corrected it under the original
-  instead of editing it, so both verdicts are on the record. Next time I'd check
-  the expected value against `data/listings.json` before writing it down; that
-  is a five-second grep I didn't do. I stopped here because there is nothing
-  left to fix in the system for this half.
-- **Search ranking picks the wrong first result for some queries, and the agent
-  always uses the first result.** `corduroy blazer under $60` returned the
-  "Vintage Linen Blazer — Cream" first and the corduroy item (pants) third:
-  `search_listings` scores by shared words, so matching only "blazer" beats the
-  closer-but-differently-categorised item, and `selected_item` is just
-  `search_results[0]`. None of my five criteria checks relevance (criterion 3
-  only checks that the same item is used consistently), so every verdict above
-  would still be MET with a poor first pick. Next I would write a criterion
-  about the selected item matching what was asked for, and then change either
-  the scoring or the selection rule. I did not touch it because the unit asks
-  for one measured fix and I'd already spent mine.
-- **Only one tool is on MCP, and each call starts a new server process.** That
-  is by design this unit, and it is slow enough to see in `run_eval.py`. The
-  agent also has no fallback: if the MCP server can't start, the run stops with
-  an error message instead of calling the function directly. I chose the
-  message because a silent fallback would hide a broken server; whether that is
-  the right trade is something I'd decide by how the server is used.
-- **The rate-limit failure path is handled but never triggered.** The
-  `RuntimeError` after repeated 429s is caught around both model steps, and the
-  message was written, but I did not reproduce it. Treat it as untested code.
-- **Criteria 1 and 5 allowed one service failure in five and I never saw one.**
-  Five-for-five means I have no evidence about how they behave when the model
-  fails mid-run (other than the broken-key test, which fails at the first model
-  call). A harder test would inject a failure on the second model call, to see
-  whether the fit card step recovers.
-- **Variety is only scored on one item.** The graphic-tee cards still repeat
-  "Putting on this" in two tries. Next I'd run the opener check on every
-  scenario that produces cards and log the chosen angle.
+- **Criterion 4 still counts as MISSED under the original wording.** The mistake was in my expected value, not in FitFindr. 
+I added the correction below the original criterion so both results are recorded. Next time, 
+I would check `data/listings.json` before writing the expected value. I stopped here because this part did not need a system change.
+
+- **The search can put a poor match first, and the agent always chooses it.** For `corduroy blazer under $60`, the first result was “Vintage Linen Blazer — Cream,” while the corduroy pants came third. The search ranks items by shared words rather than fully understanding the request. None of my five criteria checks whether the selected item is relevant; Criterion 3 only checks that the tools use the same item. This means the tests could pass even with a poor recommendation. Next, I would add a relevance check and improve the ranking or selection rule. I left this unchanged because the unit asked for one measured fix, which I had already completed.
+
+- **Only one tool uses MCP, and every call starts a new server process.** This was part of the unit’s design, 
+but the delay is noticeable in `run_eval.py`. If the server cannot start, the agent returns an error instead of calling the function directly.
+ I chose this approach so a broken server would be visible. Whether to add a fallback would depend on how the system is used.
+
+- **The rate-limit handling is still untested.** Both model steps catch the `RuntimeError` 
+raised after repeated 429 rate-limit responses and return a message. However, I did not trigger this during testing, so I cannot confirm that it works.
+
+- **I did not see the service failures allowed by Criteria 1 and 5.** Both passed all five tries, so these tests do not show what happens
+if the model fails partway through a run. The broken-key test only checks failure at the first model call.
+ Next, I would force a failure during the second model call to check how the fit card step handles it.
+
+- **The variety check only covers one item.** Two graphic-tee captions still started with “Putting on this.”
+ Next, I would check caption openings across every scenario that produces a fit card and record which opening idea was chosen.
 
 ---
 
