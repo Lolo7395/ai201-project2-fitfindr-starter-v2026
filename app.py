@@ -114,12 +114,17 @@ def _ask_one(query, wardrobe, use_trace):
     session = run_agent(query, wardrobe)
 
     print()
+    item = session["selected_item"] or {}
+    if item:
+        # Shown even when a later step failed: the search itself worked.
+        print(f"  Found:    {item.get('title')} — ${item.get('price')} on {item.get('platform')}")
+        print()
     if session["error"]:
         print(f"  {session['error']}")
     else:
-        item = session["selected_item"] or {}
-        print(f"  Found:    {item.get('title')} — ${item.get('price')} on {item.get('platform')}")
-        print()
+        if session["notice"]:
+            print(f"  Note:     {session['notice']}")
+            print()
         print(f"  Outfit:   {session['outfit_suggestion']}")
         print()
         print(f"  Fit card: {session['fit_card']}")
