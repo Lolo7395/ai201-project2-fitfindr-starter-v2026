@@ -30,6 +30,7 @@ mode — caching is what usually explains it.
 
 import argparse
 import datetime as dt
+import json
 import sys
 import traceback
 
@@ -50,12 +51,27 @@ def run_once(scenario, use_trace=True):
     if use_trace:
         trace_module.start_trace()
 
-    record = {"error": None, "session": None, "trace": "", "crashed": None}
+    record = {"error": None, "session": None, "trace": "", "crashed": None,
+              "prompts": []}
+
+    # Remember exactly what each model tool was sent. Criterion 3 asks whether
+    # the selected item's title was in those prompts, which the session alone
+    # cannot show. Wraps the name tools.py calls, and puts it back afterwards.
+    import tools
+    real_generate = tools.generate
+
+    def recording_generate(prompt, *a, **kw):
+        record["prompts"].append(prompt)
+        return real_generate(prompt, *a, **kw)
+
+    tools.generate = recording_generate
     try:
         record["session"] = run_agent(scenario["query"], wardrobe)
     except Exception as exc:  # noqa: BLE001 — a crash is a result worth logging
         record["crashed"] = f"{type(exc).__name__}: {exc}"
         record["traceback"] = traceback.format_exc()
+    finally:
+        tools.generate = real_generate
 
     if use_trace:
         record["trace"] = trace_module.get_trace()
@@ -202,6 +218,14 @@ def write_report(rows, args):
                 lines += ["Trace:", "", "```", record["trace"], "```", ""]
 
     path.write_text("\n".join(lines), encoding="utf-8")
+
+    # Machine-readable copy of every try, for scorer.py.
+    sidecar = path.with_suffix(".json")
+    sidecar.write_text(json.dumps(
+        [{"scenario": r["scenario"], "tries": [
+            {k: t.get(k) for k in ("session", "prompts", "trace", "crashed")}
+            for t in r["tries"]]} for r in rows],
+        indent=2, default=str), encoding="utf-8")
 
     import generate
 
