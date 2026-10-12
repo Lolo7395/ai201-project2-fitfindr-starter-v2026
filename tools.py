@@ -24,6 +24,7 @@ import config  # noqa: F401 — you'll use this in search_listings
 from generate import generate
 from utils.data_loader import load_listings
 
+import random
 import re
 
 # Words that say nothing about the item. Left in, "looking for a tee" would
@@ -245,6 +246,19 @@ def _describe_item(item: dict) -> str:
 
 # ── Tool 3: create_fit_card ───────────────────────────────────────────────────
 
+# Unit 4 improvement. Before this, the prompt's only instruction about openings
+# was a ban on 'Just' and 'Obsessed', and 23 of 25 cards opened "Scored this".
+# Each call now gets one angle to open from, so the variety is asked for.
+_OPENING_ANGLES = [
+    "Open with how the outfit feels to wear.",
+    "Open with where you would wear this outfit.",
+    "Open with the price, as a pleasant surprise.",
+    "Open with a short question to the reader.",
+    "Open with the one colour or texture that makes it work.",
+    "Open with the other piece from the outfit that it goes with best.",
+]
+
+
 def create_fit_card(outfit: str, new_item: dict) -> str:
     """
     Write a short caption someone would actually post about the find.
@@ -287,6 +301,7 @@ def create_fit_card(outfit: str, new_item: dict) -> str:
 
     price = f"${new_item.get('price', 0):.0f}"
     platform = new_item.get("platform")
+    angle = random.choice(_OPENING_ANGLES)
     system = (
         "You write short, casual Instagram/TikTok captions about thrift finds. "
         "Plain text, no hashtags block, at most one emoji."
@@ -296,7 +311,8 @@ def create_fit_card(outfit: str, new_item: dict) -> str:
         f"How it's being styled:\n{outfit}\n\n"
         "Write a 2 to 4 sentence caption the person would actually post about this "
         f"outfit. Mention the item, the price as {price}, and {platform} exactly once each. "
-        "Be specific about the vibe of the outfit. Don't open with 'Just' or 'Obsessed'."
+        "Be specific about the vibe of the outfit. "
+        f"{angle} Never open with 'Scored', 'Found', 'Just', 'Obsessed' or 'Thrifted'."
     )
     caption = generate(prompt, system=system).strip()
     return caption or f"Thrifted the {title} for {price} on {platform} and built a whole fit around it."
