@@ -114,6 +114,9 @@ def score(rows: list[dict]) -> dict:
     cards = [((t.get("session") or {}).get("fit_card") or "") for t in tries]
     firsts = [_first_sentence(c) for c in cards]
     distinct = len({f.lower() for f in firsts}) == len(firsts) and all(firsts)
+    # Revised criterion 4: no two cards open with the same first four words.
+    openers = [" ".join(c.lower().split()[:4]) for c in cards]
+    distinct_openers = len(set(openers)) == len(openers) and all(openers)
 
     def card_ok(card: str, platform: str) -> bool:
         return "$42" in card and platform in card.lower() and len(_sentences(card)) <= 4
@@ -127,6 +130,8 @@ def score(rows: list[dict]) -> dict:
         "cells": [card_ok(c, "depop") for c in cards],
         "cells_revised": [card_ok(c, "poshmark") for c in cards],
         "distinct_first_sentences": distinct,
+        "distinct_openers": distinct_openers,
+        "openers": openers,
         "firsts": firsts,
         "notes": notes,
     }
@@ -149,7 +154,7 @@ def verdicts(out: dict) -> dict:
         v[n] = sum(out[n]["cells"]) >= TARGETS[n]
     c4 = out[4]
     v[4] = sum(c4["cells"]) >= 4 and c4["distinct_first_sentences"]
-    v["4r"] = sum(c4["cells_revised"]) >= 4 and c4["distinct_first_sentences"]
+    v["4r"] = sum(c4["cells_revised"]) >= 4 and c4["distinct_openers"]
     v[5] = sum(out[5]["a"]) == 5 and sum(out[5]["b"]) >= 4
     return v
 
@@ -180,13 +185,24 @@ def main() -> None:
                      + " | ".join(cell(x) for x in c)
                      + f" | {sum(c)}/5 | {verdict} |")
     c4 = out[4]
+    rc = c4["cells_revised"]
+    ok4r = [a and c4["distinct_openers"] for a in rc]
+    lines.insert(
+        len(lines) - 0,
+        f"| 4 (revised). poshmark, $42, <=4 sentences; distinct 4-word openers | 4 of 5 + 5 distinct | "
+        + " | ".join(cell(x) for x in rc)
+        + f" | {sum(rc)}/5 content, openers distinct: {c4['distinct_openers']} | "
+        + ("MET" if v["4r"] else "MISSED") + " |",
+    )
     lines += ["", "## Detail", "",
               f"- Criterion 5a (budget): {sum(out[5]['a'])}/5 · 5b (empty wardrobe): {sum(out[5]['b'])}/5",
               f"- Criterion 4, content (as written, depop): {sum(c4['cells'])}/5",
               f"- Criterion 4, content (revised, poshmark): {sum(c4['cells_revised'])}/5",
-              f"- Criterion 4, five distinct first sentences: {c4['distinct_first_sentences']}",
+              f"- Criterion 4, five distinct first sentences (as written): {c4['distinct_first_sentences']}",
+              f"- Criterion 4, five distinct first-four-word openers (revised): {c4['distinct_openers']}"
+              f" — openers: {c4['openers']}",
               f"- Criterion 4 verdict as written: {'MET' if v[4] else 'MISSED'}; "
-              f"with the revision: {'MET' if v['4r'] else 'MISSED'}",
+              f"as revised in criteria.md: {'MET' if v['4r'] else 'MISSED'}",
               "", "Criterion 4 per card:", ""]
     for i, (f, note) in enumerate(zip(c4["firsts"], c4["notes"]), 1):
         lines.append(f"- try {i}: {note}\n  first sentence: {f!r}")

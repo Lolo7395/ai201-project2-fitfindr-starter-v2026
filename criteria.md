@@ -71,6 +71,24 @@ All five cards must have different first sentences.
 The model may occasionally leave out a detail, so one card can miss the content
 requirements. Different opening sentences help check that the captions have variety when caching is off.
 
+> **Revised in unit 4:** Run `denim jacket under $50` five times with caching
+> off. At least 4 out of 5 fit cards must include `$42`, mention `poshmark`,
+> and have no more than 4 sentences. No two of the five cards may open with the
+> same first four words.
+>
+> **Why revised:** Two things in the original could not be measured as
+> written, and I found both while scoring the "before" run, not before it.
+> (1) The only denim jacket under $50 in `data/listings.json` is `lst_007`, a
+> $42 listing on **poshmark**. I wrote `depop`, so a correct card could never
+> pass; the check was measuring my typo, not the fit card. (2) "Different first
+> sentences" counted two cards that differ by one word as different. All five
+> cards passed it, yet 23 of the 25 fit cards in that run opened "Scored
+> this". The new version compares the first four words, which I can compute
+> the same way every time. The 4-of-5 and four-sentence targets are unchanged.
+>
+> The "before" verdict for this criterion is reported both ways in the
+> README: as written, and as revised.
+
 ---
 
 ## 5. Results stay within budget, and an empty wardrobe still gets advice

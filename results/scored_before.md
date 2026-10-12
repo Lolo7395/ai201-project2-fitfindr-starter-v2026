@@ -9,14 +9,16 @@ Source: `run_2026-10-11_2123_before.json`
 | 3. All tools use the same selected item | 5 of 5 | PASS | PASS | PASS | PASS | PASS | 5/5 | MET |
 | 4. Fit card has price, platform, length, variety (as written: depop) | 4 of 5 + 5 distinct | FAIL | FAIL | FAIL | FAIL | FAIL | 0/5 | MISSED |
 | 5. Within budget (5/5) and empty wardrobe advice (4/5) | 5 of 5 / 4 of 5 | PASS | PASS | PASS | PASS | PASS | 5/5 | MET |
+| 4 (revised). poshmark, $42, <=4 sentences; distinct 4-word openers | 4 of 5 + 5 distinct | PASS | PASS | PASS | PASS | PASS | 5/5 content, openers distinct: False | MISSED |
 
 ## Detail
 
 - Criterion 5a (budget): 5/5 · 5b (empty wardrobe): 5/5
 - Criterion 4, content (as written, depop): 0/5
 - Criterion 4, content (revised, poshmark): 5/5
-- Criterion 4, five distinct first sentences: True
-- Criterion 4 verdict as written: MISSED; with the revision: MET
+- Criterion 4, five distinct first sentences (as written): True
+- Criterion 4, five distinct first-four-word openers (revised): False — openers: ['scored this vintage cropped', 'scored this vintage wrangler', 'scored this vintage wrangler', 'scored this vintage wrangler', 'scored this cropped wrangler']
+- Criterion 4 verdict as written: MISSED; as revised in criteria.md: MISSED
 
 Criterion 4 per card:
 

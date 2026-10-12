@@ -167,94 +167,245 @@ Same input, cache off, two different captions — so neither the cache nor a 0.0
 
 ## Run Log — Before
 
-<!-- Five criteria, five tries each, in this exact format.
+`python run_eval.py --label before`, then `python scorer.py before`. Six scenarios
+× five tries, caching off, 2 model calls per completed run. Logs:
+[results/run_2026-10-11_2123_before.md](results/run_2026-10-11_2123_before.md)
+(raw answers and traces), [results/run_2026-10-11_2123_before.json](results/run_2026-10-11_2123_before.json)
+(sessions and the prompts each tool was sent) and
+[results/scored_before.md](results/scored_before.md) (the table below, per-try detail).
 
-     Five, because your criteria are written out of five. Mark each try PASS
-     or FAIL, count the passes, and read that count against your target — a
-     row targeting 4 of 5 with three PASS cells is MISSED (3/5).
-
-     `python run_eval.py --label before` runs everything and writes the table
-     into results/. Paste it here and fill in the verdicts. -->
+`run_eval.py` leaves PASS/FAIL blank, so I wrote `scorer.py`: each check is the
+sentence from `criteria.md` it is named after, applied the same way to every
+try. Criterion 5 has two halves that run as separate scenarios; a try-cell is
+PASS only if both halves passed in that try.
 
 | Criterion | Target | Try 1 | Try 2 | Try 3 | Try 4 | Try 5 | Verdict |
 |---|---|---|---|---|---|---|---|
-| 1.  |  |  |  |  |  |  |  |
-| 2.  |  |  |  |  |  |  |  |
-| 3.  |  |  |  |  |  |  |  |
-| 4.  |  |  |  |  |  |  |  |
-| 5.  |  |  |  |  |  |  |  |
+| 1. A matching query runs all three tools | 4 of 5 | PASS | PASS | PASS | PASS | PASS | **MET** (5/5) |
+| 2. A query with no matches stops early | 5 of 5 | PASS | PASS | PASS | PASS | PASS | **MET** (5/5) |
+| 3. All tools use the same selected item | 5 of 5 | PASS | PASS | PASS | PASS | PASS | **MET** (5/5) |
+| 4. Fit card: `$42`, `depop`, ≤4 sentences, 5 different first sentences — *as written* | 4 of 5 | FAIL | FAIL | FAIL | FAIL | FAIL | **MISSED** (0/5) |
+| 4. Same, *as revised in criteria.md*: `poshmark`, 5 distinct first-four-word openers | 4 of 5 | PASS | PASS | PASS | PASS | PASS | **MISSED** (cards 5/5, openers not distinct) |
+| 5. Within $30 (5 of 5) and empty wardrobe gets advice (4 of 5) | 5 of 5 / 4 of 5 | PASS | PASS | PASS | PASS | PASS | **MET** (5/5, 5/5) |
 
-**Real output from one try**, pasted as text, naming the file and function
-that produced it:
+Criterion 4 appears twice because I revised it *after* seeing these results
+(reasons are in `criteria.md`, under the original, which is untouched). The
+as-written row is the one that counts as my verdict against what I wrote last
+unit; the revised row is what I will improve against.
+
+**Real output from one try**, `agent.py::run_agent` → `tools.py::create_fit_card`,
+as recorded by `run_eval.py::run_once` for the scenario `denim jacket under $50`
+(five cards, caching off):
+
+```
+try 1: Scored this vintage cropped Wrangler denim jacket for $42 on poshmark and it instantly elevated my streetwear game. Double denim with baggy jeans and fresh white sneakers makes for the ultimate effortless weekend fit. Layering it over an oversized crewneck with khaki trousers brings the exact proportions I was going for. 🧥
+
+try 2: Scored this vintage Wrangler denim jacket on poshmark for only $42 and it instantly elevates any streetwear fit. Throwing it on over baggy jeans or wide-leg trousers gives the ultimate effortless look. Finding pieces like this makes thrifting too addictive 🧥
+
+try 3: Scored this vintage Wrangler denim jacket on poshmark for only $42 and it is the ultimate streetwear staple. Threw it over an oversized grey crewneck with khaki trousers and combat boots for that perfect slouchy silhouette. It adds just the right amount of structure to all those loose layers. 🧥
+
+try 4: Scored this vintage Wrangler denim jacket for just $42 on poshmark and it instantly leveled up my double-denim streetwear game. The cropped fit makes it super easy to style with baggy jeans and chunky sneakers for that effortless off-duty look 🧥
+
+try 5: Scored this cropped Wrangler denim jacket for $42 on poshmark and it instantly leveled up my double-denim game. The light wash gives it that perfectly worn-in streetwear edge. Total wardrobe staple.
+```
+
+Criterion 2, `agent.py::run_agent` for `designer ballgown size XXS under $5`
+(`session["error"]`; `outfit_suggestion` and `fit_card` were `None` and no
+prompt was sent, in all five tries):
+
+```
+No listings matched "designer ballgown", size XXS, under $5. Try to drop the size, or raise the price ceiling, or use broader words (e.g. 'jacket' instead of a specific style).
+```
+
+Criterion 3, the fit-card prompt `tools.py::create_fit_card` actually sent
+(first 8 lines, try 1 of `vintage graphic tee under $30`) — the selected item's
+title is in it, and it matched `search_results[0]["id"]` in 5 of 5 tries:
+
+```
+The find:
+Title: Graphic Tee — 2003 Tour Bootleg Style
+Category: tops
+Colors: black
+Style: graphic tee, vintage, grunge, streetwear, band tee
+Size: L  Condition: good
+Price: $24 on depop
 
 ```
 
+Criterion 5, empty wardrobe, `tools.py::suggest_outfit` (first 280 characters, try 1):
+
+```
+Since I don't know the rest of your closet yet, here are two versatile ways to style your cool new Wrangler jacket! 
+
+First, try a casual streetwear look by layering it over a simple white baby tee and pairing it with high-waisted black wide-leg trousers and chunky sneakers. Fini…
 ```
 
 ---
 
 ## Verdicts and Diagnoses
 
-<!-- MET or MISSED per criterion against LAST UNIT's target, plus a sentence on
-     how you decided.
-
-     Then, for every miss: which of the four places it happened — a tool, the
-     loop's branch, the session, or the model's output — AND the mechanism.
-
-     Not a diagnosis:  "The fit card was bad."
-     A diagnosis:      "The fit card criterion missed on 2 of 5 items. Both had
-                        an empty brand field. My prompt puts the brand in the
-                        first sentence, so the card opened with a blank and read
-                        like a fragment. The tool worked; the prompt assumed a
-                        field that isn't always there."
-
-     Look for a pattern. Three misses on the same tool is one problem, not
-     three. -->
-
 | # | Criterion | Target | Verdict | How I decided |
 |---|---|---|---|---|
-| 1 |  |  |  |  |
-| 2 |  |  |  |  |
-| 3 |  |  |  |  |
-| 4 |  |  |  |  |
-| 5 |  |  |  |  |
+| 1 | A matching query runs all three tools | 4 of 5 | **MET** | 5 of 5 tries had `search_listings (via MCP)`, `suggest_outfit` and `create_fit_card` in the trace and a non-empty fit card. The target allowed one service failure and none happened. |
+| 2 | A no-match query stops early | 5 of 5 | **MET** | 5 of 5 tries: error message with something to change, no `suggest_outfit`/`create_fit_card` step, and zero prompts sent. |
+| 3 | All tools use the same item | 5 of 5 | **MET** | 5 of 5: `selected_item.id == search_results[0].id`, and the title was in both model prompts (2/2 in every try). |
+| 4 | Fit card detail and variety | 4 of 5 + 5 different | **MISSED as written** | 0 of 5 cards mention `depop`. All five say `poshmark`, which is correct. The "5 different first sentences" half did pass, on the letter. |
+| 5 | Within budget; empty wardrobe advice | 5 of 5 / 4 of 5 | **MET** | Largest result price was $26 in all five tries; the empty-wardrobe run returned an outfit and a fit card 5 of 5 times. |
 
 **Diagnoses**
 
+**Criterion 4, as written (0 of 5) — the miss is in the criterion, not the system.**
+This is not one of the four places a run can go wrong (a tool, the loop's
+branch, the session, the model's output). The only denim jacket under $50 in
+`data/listings.json` is `lst_007`, $42 on poshmark. I wrote `depop` in last
+unit's criterion. Every card correctly said poshmark and every one failed my
+check. I'm not calling this a pass: against what I wrote, it is MISSED. But no
+fix to the agent could make it pass, so I revised the criterion rather than
+the code, and said so under the original in `criteria.md`.
 
+**Criterion 4, as revised (openers not distinct) — the model's output, caused by the `create_fit_card` prompt.**
+23 of the 25 fit cards across the whole run open with "Scored this" (one
+"Found this", one "Score this"). In the denim-jacket scenario, three of the
+five cards open with the same first four words, "Scored this vintage Wrangler".
+The tool works: price, platform and length were all right in 5 of 5. The
+mechanism I believe is this: `create_fit_card`'s prompt has exactly one
+instruction about openings, `Don't open with 'Just' or 'Obsessed'`, which bans
+two words and names no alternative, so the model takes the next most likely
+opener. Temperature is 0.9, so this isn't the 0.0 case from `config.py`; the
+prompt itself leaves the opening to a single high-probability choice. The
+"after" run below tests that explanation.
+
+**Not misses, but worth saying plainly.**
+- Criterion 4's "different first sentences" passed 5 of 5 while the cards were
+  near-duplicates. That is the criterion's measurement problem (revised), not a
+  success of the system.
+- Criteria 1 and 5 allow one service failure in five, and none happened. The
+  free-tier rate limit paused the run (`[rate limit] 15 requests used this
+  minute`) but never failed a call, so I have no evidence about how criterion
+  1 behaves when the model does fail. Both are bounded by one run of five.
+- My first scorer marked criterion 2 as 0 of 5. That was my bug (it matched the
+  word `suggest_outfit` inside the trace *note* "…NOT called"), not the agent;
+  the log was always showing the branch working. Fixed to match step names and
+  re-scored the same log. Noted here because a criterion that "fails" for the
+  wrong reason is exactly what happened with criterion 4's `depop`.
 
 ---
 
 ## Loop Trace
 
-<!-- One full run, printed step by step, with the MCP call visible in it.
+`python app.py ask '...' --trace`. The `search_listings (via MCP)` step is the
+call that goes over `mcp_client.call_tool` to `mcp_server.py`; the other two
+tools are still called directly.
 
-     `python app.py ask '...' --trace` once you've added the trace.step()
-     calls in Milestone 2.
+**Happy path** (`AI201_CACHE=0`, so both model calls are real)
 
-     Worth pasting BOTH the happy path and the empty-search path. The empty
-     one should be visibly shorter, because it stops. If your two traces are
-     the same length, your branch isn't working — and this is the fastest way
-     anyone will ever find that out. -->
+```
+[1] parse_query
+      in:  'vintage graphic tee under $30'
+      out: description='vintage graphic tee', size=None, max_price=30.0
+[2] search_listings (via MCP)
+      in:  description='vintage graphic tee', size=None, max_price=30.0
+      out: 10 items: Graphic Tee — 2003 Tour Bootleg Style, Vintage Band Tee — Faded Grey, Y2K Baby Tee — Butterfly Print … +7 more
+      →    selected first result: lst_006
+[3] suggest_outfit
+      in:  Graphic Tee — 2003 Tour Bootleg Style, 10 wardrobe items
+      out: Hey there! What an awesome find, that 2003 tour graphic tee is so cool and versatile.   For your first outfit,…
+[4] create_fit_card
+      in:  outfit text + Graphic Tee — 2003 Tour Bootleg Style
+      out: Scored this 2003 tour graphic tee for only $24 on depop and it is already doing heavy lifting for my grungy st…
+```
 
-**Happy path**
+**Empty search** — visibly shorter: two steps, then the branch stops the loop
+and neither model tool is called (0 model calls):
 
+```
+[1] parse_query
+      in:  'purple unicorn onesie size XXS under $3'
+      out: description='purple unicorn onesie', size='XXS', max_price=3.0
+[2] search_listings (via MCP)
+      in:  description='purple unicorn onesie', size='XXS', max_price=3.0
+      out: [] (empty)
+      →    branch: empty — stopping, suggest_outfit and create_fit_card are NOT called
+```
+
+### Three failures, triggered on purpose
+
+| # | Failure | How I triggered it | What the user saw before | What the user sees now |
+|---|---|---|---|---|
+| 1 | Empty search | `ask 'purple unicorn onesie size XXS under $3'` | Already handled (the branch) | Unchanged: a message naming what was searched and what to loosen, 0 model calls |
+| 2 | Empty wardrobe | `ask 'denim jacket under $50' --empty-wardrobe` | No crash, but silent: nothing told the user the outfit was generic (only the model's own wording) | A `Note:` line saying the wardrobe is empty and the outfit is general advice; trace says `wardrobe empty: general advice` |
+| 3 | Model unavailable | `GEMINI_API_KEY=<broken> ask 'corduroy blazer under $60'` (new query, so not cached) | `ModelUnavailable` raised out of `run_agent`, loop crashed, listing lost; `run_eval.py` would log a crash | The found listing, plus "The model isn't available… Check GEMINI_API_KEY…" and the trace stops at `suggest_outfit — ModelUnavailable` |
+
+I overrode `GEMINI_API_KEY` in the environment for failure 3 instead of editing
+`.env`: `config.py` loads `.env` without overriding an existing variable, so it
+is the same broken key reaching the same call, and my real key was never
+touched. The empty-wardrobe and broken-key runs, as printed (the empty search is the trace above):
+
+```
+$ python app.py ask 'denim jacket under $50' --empty-wardrobe --trace
+(running with an empty wardrobe)
+[1] parse_query
+      in:  'denim jacket under $50'
+      out: description='denim jacket', size=None, max_price=50.0
+[2] search_listings (via MCP)
+      in:  description='denim jacket', size=None, max_price=50.0
+      out: 7 items: Denim Jacket — Light Wash, Cropped, High-Waisted Denim Shorts — Cutoff, Denim Vest — Medium Wash, Studded … +4 more
+      →    selected first result: lst_007
+[3] suggest_outfit
+      in:  Denim Jacket — Light Wash, Cropped, 0 wardrobe items
+      out: Since I don’t know your closet yet, here are two fun ways to style your cool new Wrangler jacket!   First, try…
+      →    wardrobe empty: general advice
+[4] create_fit_card
+      in:  outfit text + Denim Jacket — Light Wash, Cropped
+      out: Scored this vintage Wrangler denim jacket on Poshmark for only $42 and the light wash is absolute perfection. …
+
+  Found:    Denim Jacket — Light Wash, Cropped — $42.0 on poshmark
+
+  Note:     Your wardrobe is empty, so these outfit ideas are general styling advice, not built from clothes you own. Add wardrobe items to get outfits that use them.
+
+  Outfit:   Since I don’t know your closet yet, here are two fun ways to style your cool new Wrangler jacket! 
+
+First, try a casual streetwear look by layering it over an oversized graphic tee, paired with high-waisted black biker shorts and chunky white sneakers. Finish with a canvas tote bag. This works because the light wash denim contrasts nicely with black, and the cropped fit balances the longer tee.
+
+Second, go for a retro vibe by wearing it with a floral midi dress and canvas sneakers, accented with a simple bucket hat. This combo works because the rugged denim instantly tones down the sweetness of the dress for an effortless, balanced outfit.
+
+  Fit card: Scored this vintage Wrangler denim jacket on Poshmark for only $42 and the light wash is absolute perfection. Threw it over an oversized graphic tee and biker shorts for the ultimate casual streetwear fit. Such a good find. 🧥
 ```
 
 ```
+[1] parse_query
+      in:  'corduroy blazer under $60'
+      out: description='corduroy blazer', size=None, max_price=60.0
+[2] search_listings (via MCP)
+      in:  description='corduroy blazer', size=None, max_price=60.0
+      out: 3 items: Vintage Linen Blazer — Cream, Velvet Blazer — Emerald Green, Corduroy Wide-Leg Pants — Rust
+      →    selected first result: lst_018
+[3] suggest_outfit
+      in:  Vintage Linen Blazer — Cream, 10 wardrobe items
+      →    ModelUnavailable — stopping
 
-**Empty search**
+  Found:    Vintage Linen Blazer — Cream — $38.0 on thredUp
 
+  The model isn't available, so the outfit and fit card could not be written. Your search worked: the listing above is the best match it found. The model rejected your API key. Check GEMINI_API_KEY in your .env file, or create a fresh key at aistudio.google.com. Fix that and run the query again.
 ```
 
-```
+`generate.py` also raises a plain `RuntimeError` after repeated rate-limit
+retries; `run_agent` now catches that around the two model steps too and says
+"the model is busy, wait about a minute". I did not trigger that path on
+purpose (it needs the free tier to refuse five retries in a row), so it is
+handled but untested.
 
-**On the MCP move:** <!-- what changed in your code, and whether anything
-behaved differently afterwards. If the rewire didn't work, say exactly where it
-broke — the error text and the last thing that worked. That earns the point in
-full. -->
-
-
+**On the MCP move:** `search_listings` is registered in `mcp_server.py` with its
+typed inputs (`description: str`, `size: str | None`, `max_price: float | None`)
+and a description written for a reader who cannot see the code, including the
+size-matching rule and the empty case. `run_agent()` calls
+`mcp_client.call_tool("search_listings", {...})` instead of the function.
+Nothing behaved differently: the MCP result equals the direct call
+(`call_tool(...) == search_listings(...)` was `True` for `graphic tee` under
+$30, and an empty search came back as `[]`, not `None`, so the branch still
+fires). The one thing I did notice is cost: each call starts and stops the
+server process, which is visible as a short pause in `run_eval.py`.
+`python mcp_client.py` lists the tool with its schema.
 
 ---
 
